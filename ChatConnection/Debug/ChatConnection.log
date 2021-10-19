@@ -1,0 +1,2 @@
+﻿  Server.cpp
+LINK : fatal error LNK1104: cannot open file 'C:\Users\user\source\repos\ChatConnection\Debug\Server.exe'
