@@ -9,22 +9,40 @@
 
 using namespace std;
 
-struct PlayerInfo {
-	int id;
-	char avatar;
-	int positionx;
-	int positiony;
-};
-
-list<PlayerInfo> players;
-int playerID = -1;
+//Constants||
+char END_OF_MESSAGE = '\20';
+char MESSAGE_BREAK = '\22';
+//_________||
 
 void HandleServerConnection(SOCKET server) {
 
 	char buffer[MAXRECVBUFFER];
 	while (recv(server, buffer, MAXRECVBUFFER, 0) > 0)
 	{
-		cout << "Message: " << buffer << endl;
+		string ip;
+		string message;
+		bool parsingID = true;
+
+		for (int i = 0; i < MAXRECVBUFFER; i++) {
+			char currentCharacter = buffer[i];
+			if (parsingID) {
+				if (currentCharacter == MESSAGE_BREAK) {
+					parsingID = false;
+					continue;
+				}
+				else {
+					ip += currentCharacter;
+				}
+			}
+			else {
+				if (currentCharacter == END_OF_MESSAGE) 
+					break;
+				else
+					message += currentCharacter;
+			}
+		}
+
+		cout << "[" << ip << "]:" << message << endl;
 	}
 	cout << "Server commited seppuku" << endl;
 }
@@ -65,12 +83,13 @@ int main()
 	while (message != "exit")
 	{
 		getline(cin, message);
+		message += END_OF_MESSAGE;
 		if (send(server, message.c_str(), message.length() + 1, 0) == SOCKET_ERROR)
 		{
 			cout << "send failed!" << endl;
 			return 4;
 		}
-		cout << "Message sent!" << endl;
+
 	}
 	if (closesocket(server) == SOCKET_ERROR)
 	{

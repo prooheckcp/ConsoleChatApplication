@@ -2,7 +2,7 @@
 #include <WinSock2.h>
 #include <WS2tcpip.h>
 #include <thread>
-#include <list>
+#include <vector>
 #include <string>
 
 #define MAXPENDINGCONNECTIONS 10
@@ -10,40 +10,54 @@
 
 using namespace std;
 
-/*CLIENT-SERVER MESSAGE PROTOCOL
+//Constants||
+char END_OF_MESSAGE = '\20';
+char MESSAGE_BREAK = '\22';
+//_________||
 
-CLIENT TO SERVER:
-MOVE_TYPE | ID |
-EXAMPLES: U|1, D|1, L|1, R|1
-
-SERVER TO CLIENT:
-CONNECTION CONFIRMATION:C|ID|AVATAR|posX|posY
-UPDATE PLAYERS: U|ID|AVATAR|posX|posY
-
-
-*/
-
-struct PlayerInfo {
+struct user {
+	char* ip;
 	SOCKET client;
-	int id;
-	char avatar;
-	int positionx;
-	int positiony;
 };
 
-list<PlayerInfo> players;
-int playerCount = 0;
+vector<user> connectedUsers;
 
-void HandleClientConnection(PlayerInfo player)
+void HandleClientConnection(user newUser)
 {
-	cout << "User connect: " << player.id;
+	cout << "[" << newUser.ip << "]: Connected to the chat!" << endl;
 
 	char buffer[MAXRECVBUFFER];
-	while (recv(player.client, buffer, MAXRECVBUFFER, 0) > 0)
+	while (recv(newUser.client, buffer, MAXRECVBUFFER, 0) > 0)
 	{
+		string message = "";
+
+		for (int i = 0; i < MAXRECVBUFFER; i++) {
+			if (buffer[i] == END_OF_MESSAGE)
+				break;
+			else
+				message += buffer[i];
+		}
+
+		string newResponse(newUser.ip);
+
+		newResponse.push_back(MESSAGE_BREAK);
+		newResponse.append(message);
+		newResponse.push_back(END_OF_MESSAGE);
+
+		for (int i = 0; i < connectedUsers.size(); i++) {
+
+			user currentUser = connectedUsers.at(i);
+
+			if (currentUser.client == newUser.client)
+				continue;
+
+			if (send(currentUser.client, newResponse.c_str(), newResponse.length() , 0) == SOCKET_ERROR) {
+				cout << "Message failed to replicate!" << endl;
+			}
+		}
+
 
 	}
-	cout << "Player " << player.avatar << " disconnected!" << endl;
 }
 
 int main()
@@ -95,16 +109,14 @@ int main()
 		{
 			char ip[INET_ADDRSTRLEN];
 			inet_ntop(AF_INET, &(clientAddr.sin_addr), ip, INET_ADDRSTRLEN);
-			cout << "Client " << ip << " connected!" << endl;
+				
+			user newUser;
+			newUser.client = client;
+			newUser.ip = ip;
 
-			PlayerInfo player;
-			player.client = client;
-			player.positionx = 1;
-			player.positiony = 1;
-			player.id = playerCount++;
+			connectedUsers.push_back(newUser);
 
-			players.push_back(player);
-			thread* clientThread = new thread(HandleClientConnection, player);
+			thread* clientThread = new thread(HandleClientConnection, newUser);
 		}
 	}
 	WSACleanup();
